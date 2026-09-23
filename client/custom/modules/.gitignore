@@ -1,3 +1,5 @@
 *
 !.gitignore
 !dummy.txt
+!modern-theme/
+!modern-theme/**

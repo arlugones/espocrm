@@ -12,6 +12,7 @@
     "build-dev": "grunt dev",
     "build-test": "grunt test",
     "build-frontend": "grunt internal",
+    "build-custom-themes": "node js/build-custom-themes.js",
     "sa": "php vendor/bin/phpstan",
     "unit-tests": "php vendor/bin/phpunit ./tests/unit",
     "integration-tests": "php vendor/bin/phpunit ./tests/integration"

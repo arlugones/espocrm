@@ -1,0 +1,7 @@
+{
+    "stylesheet": "client/custom/modules/modern-theme/css/modern.css",
+    "stylesheetIframe": "client/custom/modules/modern-theme/css/modern-iframe.css",
+    "logo": "client/custom/modules/modern-theme/img/logo.svg",
+    "textColor": "#1e293b",
+    "isDark": false
+}

@@ -25,6 +25,7 @@
 /custom/Espo/Modules/*
 !/custom/Espo/Custom/.htaccess
 !/custom/Espo/Modules/.htaccess
+!/custom/Espo/Modules/ModernTheme/
 /install/config.php
 
 client/css/espo/*

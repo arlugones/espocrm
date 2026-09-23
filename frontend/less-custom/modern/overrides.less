@@ -1,0 +1,134 @@
+// Modern theme: rule overrides layered on top of the stock espo.css.
+// Kept outside core LESS so that EspoCRM upgrades don't overwrite them.
+
+// Buttons.
+
+.btn {
+    transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-default {
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
+
+    &:hover {
+        box-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.06);
+    }
+}
+
+.btn-primary {
+    box-shadow: 0 1px 2px 0 rgba(37, 99, 235, 0.2), 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+
+    &:hover {
+        box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.3), 0 2px 4px -2px rgba(37, 99, 235, 0.2);
+    }
+}
+
+// Panels.
+
+.panel {
+    transition: box-shadow 0.2s ease, border-color 0.2s ease;
+
+    > .panel-heading h4 {
+        font-weight: 600;
+        letter-spacing: -0.01em;
+    }
+}
+
+// Tables.
+
+table.table > thead th > a {
+    font-weight: 600;
+}
+
+table.table > thead th {
+    font-size: var(--12px);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-weight: 600;
+}
+
+.table thead > tr > th {
+    font-weight: 600;
+}
+
+.table tbody > tr {
+    transition: background-color 0.15s ease;
+}
+
+.table tr > th {
+    font-weight: 600;
+}
+
+// Labels.
+
+.label {
+    padding: var(--2px) var(--8px);
+    font-weight: 500;
+    font-size: var(--12px);
+    border-radius: var(--badge-border-radius-value);
+    display: inline-flex;
+    align-items: center;
+    letter-spacing: 0.01em;
+}
+
+// Form focus ring.
+
+.form-control:focus,
+.selectize-input:focus {
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+// Side navbar tabs.
+
+body[data-navbar="side"] #navbar,
+body[data-navbar="side"].minimized.side-menu-opened #navbar {
+    ul.tabs {
+        margin-top: var(--8px);
+        padding-left: var(--8px);
+        padding-right: var(--8px);
+
+        li {
+            margin-bottom: var(--2px);
+        }
+
+        li > a {
+            border-radius: var(--border-radius);
+            transition: background-color 0.15s ease, color 0.15s ease;
+        }
+
+        li.tab.active > a {
+            background-color: var(--navbar-inverse-link-active-bg);
+            color: var(--brand-primary);
+            font-weight: 600;
+
+            .short-label,
+            .more-icon {
+                color: var(--brand-primary);
+            }
+        }
+    }
+}
+
+// Stock rules that come after the overridden ones in espo.css and have the same
+// specificity. Appending the overrides would otherwise make them lose; re-assert.
+
+.btn-text,
+.btn-text:active,
+.btn-text.active,
+.btn-text:active:hover,
+.btn-text[disabled],
+fieldset[disabled] .btn-text {
+    box-shadow: none;
+}
+
+.label-md {
+    font-weight: normal;
+    font-size: var(--font-size-base);
+    padding: var(--1px) var(--7px) var(--2px);
+}
+
+.label-sm {
+    font-weight: normal;
+    font-size: 75%;
+    padding: 0.09em 0.5em 0.18em;
+}
