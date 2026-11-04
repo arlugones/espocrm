@@ -1,0 +1,49 @@
+# LOCAL DEVELOPMENT ONLY. Do not use this file to deploy.
+#
+# Runs the published EspoCRM image with a few repo directories bind-mounted, to
+# try out the custom theme and customizations. Application code comes from the
+# image, so changes in client/src or application/ are not picked up here.
+# The credentials below are throwaway values for a local instance.
+#
+# Usage: docker compose -f docker-compose.dev.yml up -d   (http://localhost:8090)
+#
+# For deployment see docker-compose.yml.
+name: espocrm
+
+services:
+  espocrm:
+    image: espocrm/espocrm:10.0.11
+    container_name: espocrm-app
+    restart: always
+    environment:
+      ESPOCRM_DATABASE_HOST: espocrm-db
+      ESPOCRM_DATABASE_NAME: espocrm
+      ESPOCRM_DATABASE_USER: espocrm
+      ESPOCRM_DATABASE_PASSWORD: espocrm_password
+      ESPOCRM_ADMIN_USERNAME: admin
+      ESPOCRM_ADMIN_PASSWORD: admin_password
+    volumes:
+      - ./client/css:/var/www/html/client/css
+      - ./client/img:/var/www/html/client/img
+      - ./custom:/var/www/html/custom
+      - ./client/custom:/var/www/html/client/custom
+      - ./data:/var/www/html/data
+    ports:
+      - "8090:80"
+    depends_on:
+      - espocrm-db
+
+  espocrm-db:
+    image: mariadb:10.11
+    container_name: espocrm-db
+    restart: always
+    environment:
+      MARIADB_DATABASE: espocrm
+      MARIADB_USER: espocrm
+      MARIADB_PASSWORD: espocrm_password
+      MARIADB_ROOT_PASSWORD: root_password
+    volumes:
+      - espocrm-db-data:/var/lib/mysql
+
+volumes:
+  espocrm-db-data:

@@ -1,0 +1,148 @@
+# EspoCRM deployment (Docker Compose).
+#
+# Setup:
+#   cp .env.example .env        # then fill in the required values
+#   docker compose up -d                       # app behind your own reverse proxy
+#   docker compose --profile https up -d       # app + Caddy with automatic HTTPS
+#
+# Services:
+#   espocrm            web app (migrates the database on start)
+#   espocrm-daemon     scheduled jobs, email fetching and sending
+#   espocrm-websocket  real-time notifications
+#   theme-installer    copies the Modern theme from this repository into the volumes
+#   caddy              HTTPS reverse proxy (profile "https" only)
+#
+# The image tag is the EspoCRM release this repository is based on. The compiled theme CSS
+# embeds that release's variables, so change both together (see CLAUDE.md).
+#
+# Updating the theme after `git pull`: `up -d` runs theme-installer again, then clear the cache.
+#   docker compose up -d
+#   docker compose exec espocrm php clear_cache.php
+#
+# Never bind-mount into data/, custom/ or client/custom/: the image entrypoint runs
+# `chown -R` on them at every start. Mounting /var/www/html directly is the legacy layout
+# and disables upgrades.
+name: espocrm-prod
+
+x-espocrm-image: &espocrm-image espocrm/espocrm:10.0.11
+
+x-espocrm-volumes: &espocrm-volumes
+  - espocrm-data:/var/www/html/data
+  - espocrm-custom:/var/www/html/custom
+  - espocrm-client-custom:/var/www/html/client/custom
+
+services:
+  espocrm-db:
+    image: mariadb:10.11
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: espocrm
+      MARIADB_USER: espocrm
+      MARIADB_PASSWORD: ${ESPOCRM_DATABASE_PASSWORD:?Set ESPOCRM_DATABASE_PASSWORD in .env}
+      MARIADB_ROOT_PASSWORD: ${ESPOCRM_DATABASE_ROOT_PASSWORD:?Set ESPOCRM_DATABASE_ROOT_PASSWORD in .env}
+    volumes:
+      - espocrm-db:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 20s
+      start_period: 30s
+      timeout: 10s
+      retries: 5
+
+  # One-shot. It has to use the EspoCRM image: the first container that mounts an empty
+  # volume gets the image's skeleton (.htaccess, Espo/Custom, client/custom/modules).
+  theme-installer:
+    image: *espocrm-image
+    user: root
+    restart: "no"
+    entrypoint: ["sh", "-ec"]
+    command:
+      - |
+        test -f /theme/module/Resources/module.json || { echo "Theme module not found: run from the repository root." >&2; exit 1; }
+        test -f /theme/client/css/modern.css || { echo "Theme CSS not found: run 'npm run build-custom-themes'." >&2; exit 1; }
+        mkdir -p custom/Espo/Modules client/custom/modules
+        rm -rf custom/Espo/Modules/ModernTheme client/custom/modules/modern-theme
+        cp -a /theme/module custom/Espo/Modules/ModernTheme
+        cp -a /theme/client client/custom/modules/modern-theme
+        chown -R www-data:www-data custom client/custom
+    volumes:
+      - espocrm-custom:/var/www/html/custom
+      - espocrm-client-custom:/var/www/html/client/custom
+      - ./custom/Espo/Modules/ModernTheme:/theme/module:ro
+      - ./client/custom/modules/modern-theme:/theme/client:ro
+
+  espocrm:
+    image: *espocrm-image
+    restart: unless-stopped
+    depends_on:
+      espocrm-db:
+        condition: service_healthy
+      theme-installer:
+        condition: service_completed_successfully
+    environment:
+      # Only read on the first install.
+      ESPOCRM_DATABASE_PLATFORM: Mysql
+      ESPOCRM_DATABASE_HOST: espocrm-db
+      ESPOCRM_DATABASE_NAME: espocrm
+      ESPOCRM_DATABASE_USER: espocrm
+      ESPOCRM_DATABASE_PASSWORD: ${ESPOCRM_DATABASE_PASSWORD:?Set ESPOCRM_DATABASE_PASSWORD in .env}
+      ESPOCRM_ADMIN_USERNAME: ${ESPOCRM_ADMIN_USERNAME:-admin}
+      ESPOCRM_ADMIN_PASSWORD: ${ESPOCRM_ADMIN_PASSWORD:?Set ESPOCRM_ADMIN_PASSWORD in .env}
+      ESPOCRM_LANGUAGE: ${ESPOCRM_LANGUAGE:-en_US}
+      ESPOCRM_TIME_ZONE: ${ESPOCRM_TIME_ZONE:-UTC}
+      ESPOCRM_SITE_URL: ${ESPOCRM_SITE_URL:?Set ESPOCRM_SITE_URL in .env}
+      # Applied on every start. Only this service sets them: every container that has
+      # ESPOCRM_CONFIG_* rewrites the shared config file at start.
+      ESPOCRM_CONFIG_SITE_URL: ${ESPOCRM_SITE_URL}
+      ESPOCRM_CONFIG_USE_WEB_SOCKET: "true"
+      ESPOCRM_CONFIG_WEB_SOCKET_URL: ${ESPOCRM_WEBSOCKET_URL:?Set ESPOCRM_WEBSOCKET_URL in .env}
+      ESPOCRM_CONFIG_WEB_SOCKET_ZERO_M_Q_SUBSCRIBER_DSN: tcp://*:7777
+      ESPOCRM_CONFIG_WEB_SOCKET_ZERO_M_Q_SUBMISSION_DSN: tcp://espocrm-websocket:7777
+    volumes: *espocrm-volumes
+    ports:
+      - "127.0.0.1:${ESPOCRM_APP_PORT:-8080}:80"
+
+  # The daemon and the websocket server exit while the app is not installed yet, so they
+  # need a restart policy that also restarts on a clean exit.
+  espocrm-daemon:
+    image: *espocrm-image
+    restart: unless-stopped
+    depends_on:
+      - espocrm
+    entrypoint: docker-daemon.sh
+    volumes: *espocrm-volumes
+
+  espocrm-websocket:
+    image: *espocrm-image
+    restart: unless-stopped
+    depends_on:
+      - espocrm
+    entrypoint: docker-websocket.sh
+    volumes: *espocrm-volumes
+    ports:
+      - "127.0.0.1:${ESPOCRM_WEBSOCKET_PORT:-8081}:8080"
+
+  caddy:
+    image: caddy:2
+    profiles: ["https"]
+    restart: unless-stopped
+    depends_on:
+      - espocrm
+      - espocrm-websocket
+    environment:
+      ESPOCRM_DOMAIN: ${ESPOCRM_DOMAIN:-}
+    ports:
+      - "${ESPOCRM_PUBLIC_HTTP_PORT:-80}:80"
+      - "${ESPOCRM_PUBLIC_HTTPS_PORT:-443}:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  espocrm-db:
+  espocrm-data:
+  espocrm-custom:
+  espocrm-client-custom:
+  caddy-data:
+  caddy-config:

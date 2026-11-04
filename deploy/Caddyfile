@@ -1,0 +1,15 @@
+# Caddy reverse proxy for docker-compose.yml (profile "https").
+# ESPOCRM_DOMAIN is the public host name, e.g. crm.example.com. Caddy gets and renews the
+# certificate automatically; ports 80 and 443 must be reachable from the internet.
+{$ESPOCRM_DOMAIN} {
+	encode zstd gzip
+
+	# Real-time notifications. Set ESPOCRM_WEBSOCKET_URL to wss://<domain>/ws.
+	handle /ws* {
+		reverse_proxy espocrm-websocket:8080
+	}
+
+	handle {
+		reverse_proxy espocrm:80
+	}
+}
